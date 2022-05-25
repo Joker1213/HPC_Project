@@ -5,24 +5,28 @@ HPC课程的Project， 关于一维传热方程的数值解(显式方法和隐�
 一维传热方程如下：
 
 $$
-\begin{aligned}
+\begin{align}
 \rho c \frac{\partial u}{\partial t} - \kappa \frac{\partial^2 u}{\partial x^2} &= \sin(l \pi x)\\
 \kappa \frac{\partial u}{\partial x} n_x &= h\\
 \kappa &= 1.0\\
-u(0,t) &= u(1,t) = 0\\
-u|_{t=0} &= e^x
-\end{aligned}
+\end{align}
 $$
 
 边界条件为：
 
+$$
+\begin{align}
+u(0,t) &= u(1,t) = 0\\
+u|_{t=0} &= e^x
+\end{align}
+$$
 
 传热方程改写成：
 
 $$
-\begin{aligned}
+\begin{align}
 \frac{\partial u}{\partial t} - \frac{\kappa}{\rho c}\frac{\partial^2 u}{\partial x^2} &= \frac{1}{\rho c}\sin(l \pi x)\\
-\end{aligned}
+\end{align}
 $$
 
 ## 显式格式(Adams-Bashforth)：
@@ -32,22 +36,22 @@ $$
 $$
 \left\{ 
     \begin{array}{c}
-        \begin{aligned}
+        \begin{align}
         \frac{\partial u}{\partial t} &= \frac{u^{n+1}_j-u^n_j}{\Delta t}\\
         \frac{\partial^2 u}{\partial x^2} &= \frac{u^n_{j+1}-2u^n_j+u^n_{j-1}}{\Delta x^2}
-        \end{aligned}
+        \end{align}
     \end{array}
 \right.
 $$
 
 $$
-\begin{aligned}
+\begin{align}
 \therefore \frac{u^{n+1}_j-u^n_j}{\Delta t} &= \frac{\kappa}{\rho c} \frac{u^n_{j+1}-2u^n_j+u^n_{j-1}}{\Delta x^2} + \frac{1}{\rho c}\sin(l \pi j \Delta x) \\
 \implies u^{n+1}_j &= u^n_j + \frac{\kappa \Delta t}{\rho c \Delta x^2} (u^n_{j+1}-2u^n_j+u^n_{j-1})+ \frac{\Delta t}{\rho c}\sin(l \pi j \Delta x)\\
 \implies u^{n+1}_j &= \frac{\kappa \Delta t}{\rho c \Delta x^2} u^n_{j+1} + (1-\frac{2 \kappa \Delta t}{\rho c \Delta x^2}) u^n_j + \frac{\kappa \Delta t}{\rho c \Delta x^2}u^n_{j-1} + \frac{\Delta t}{\rho c}\sin(l \pi j \Delta x)\\
 make  \frac{\kappa}{\rho c} &= \alpha, \frac{\alpha \Delta t}{\Delta x^2} = \beta = \frac{\kappa \Delta t}{\rho c \Delta x^2}\\
 \implies u^{n+1}_j &= \beta u^n_{j+1} + (1-2\beta) u^n_j + \beta u^n_{j-1} + \frac{\Delta t}{\rho c}\sin(l \pi j \Delta x)\\
-\end{aligned}
+\end{align}
 $$
 
 ## 隐式格式(Crank-Nicolson)：
@@ -57,25 +61,25 @@ $$
 $$
 \left\{ 
     \begin{array}{c}
-        \begin{aligned}
+        \begin{align}
         \frac{\partial u}{\partial t} &= \frac{u^{n+1}_j-u^n_j}{\Delta t}\\
         \frac{\partial^2 u}{\partial x^2} &= \frac{u^{n+1}_{j+1}-2u^{n+1}_j+u^{n+1}_{j-1}}{\Delta x^2}
-        \end{aligned}
+        \end{align}
     \end{array}
 \right.
 $$
 
 $$
-\begin{aligned}
+\begin{align}
 \therefore \frac{u^{n+1}_j-u^n_j}{\Delta t} &= \frac{\kappa}{\rho c} \frac{u^{n+1}_{j+1}-2u^{n+1}_j+u^{n+1}_{j-1}}{\Delta x^2} + \frac{1}{\rho c}\sin(l \pi j \Delta x)\\
 make  \frac{\kappa}{\rho c} &= \alpha, \frac{\alpha \Delta t}{\Delta x^2} = \beta = \frac{\kappa \Delta t}{\rho c \Delta x^2}\\
-\end{aligned}
+\end{align}
 $$
 
 $$
-\begin{aligned}
+\begin{align}
 \implies -\beta u^{n+1}_{j+1} + (1+2\beta)u^{n+1}_j - \beta u^{n+1}_{j+1} = u^n_j + \alpha \Delta t \sin(l \pi j \Delta x)
-\end{aligned}
+\end{align}
 $$
 
 解的格式为：
