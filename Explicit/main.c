@@ -15,7 +15,7 @@ int main(int argc, char **args){
     PetscScalar u0;
     PetscInt size, rank;
     PetscErrorCode ierr;
-    L = 1.0;dx = L/n;dt = 0.00001;its = (int)(2/dt);
+    L = 1.0;dx = L/n;dt = 0.00001;its = (int)(1/dt);
     kappa = 1.0;rho = 1.0;c = 1.0;
     CFL = kappa*dt/(rho*c*dx*dx);
 
@@ -28,15 +28,15 @@ int main(int argc, char **args){
  
     // 创建速度向量u
     ierr = VecCreate(PETSC_COMM_WORLD, &u);CHKERRQ(ierr);
-    ierr = VecSetSizes(u,PETSC_DECIDE,n);CHKERRQ(ierr);
+    ierr = VecSetSizes(u,PETSC_DECIDE,n+1);CHKERRQ(ierr);
     ierr = VecSetFromOptions(u);CHKERRQ(ierr);
     ierr = VecDuplicate(u, &u_new);CHKERRQ(ierr);
     ierr = VecDuplicate(u, &b);CHKERRQ(ierr);
 
     // 速度初始化
-    for (j = 0; j < n; j++)
+    for (j = 0; j <= n; j++)
     {
-        if(j==0 || j == n-1){
+        if(j==0 || j == n){
             u0 = 0.0;
             ierr = VecSetValue(u, j, u0, INSERT_VALUES);CHKERRQ(ierr);
         }
@@ -48,7 +48,7 @@ int main(int argc, char **args){
 
     ierr = VecAssemblyBegin(u);CHKERRQ(ierr);
     ierr = VecAssemblyEnd(u);CHKERRQ(ierr);
-    // ierr = VecView(u, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
+    ierr = VecView(u, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
  
     // 确定向量布局
     ierr = VecGetOwnershipRange(u,&rstart,&rend);CHKERRQ(ierr);
@@ -56,7 +56,7 @@ int main(int argc, char **args){
 
     // 创建系数矩阵A
     ierr = MatCreate(PETSC_COMM_WORLD, &A);CHKERRQ(ierr);
-    ierr = MatSetSizes(A,nlocal,nlocal,n,n);CHKERRQ(ierr);
+    ierr = MatSetSizes(A,nlocal,nlocal,n+1,n+1);CHKERRQ(ierr);
     ierr = MatSetFromOptions(A);CHKERRQ(ierr);
     ierr = MatSetUp(A);CHKERRQ(ierr);
  
@@ -68,10 +68,10 @@ int main(int argc, char **args){
         ierr   = MatSetValues(A,1,&i,2,col,value,INSERT_VALUES);CHKERRQ(ierr);
     }
 
-    if (rend == n) 
+    if (rend == n+1) 
     {
-        rend = n-1;
-        i    = n-1; col[0] = n-2; col[1] = n-1; value[0] = 0; value[1] = 0;
+        rend = n;
+        i    = n; col[0] = n-2; col[1] = n-1; value[0] = 0; value[1] = 0;
         ierr = MatSetValues(A,1,&i,2,col,value,INSERT_VALUES);CHKERRQ(ierr);
     }
     value[0] = CFL; value[1] = 1-2.0*CFL; value[2] = CFL;
@@ -84,12 +84,12 @@ int main(int argc, char **args){
     /* Assemble the martix */
     ierr = MatAssemblyBegin(A,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
     ierr = MatAssemblyEnd(A,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
-    // ierr = MatView(A, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
+    ierr = MatView(A, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
 
     /* 设置向量b */
-    for (j = 0; j < n; j++)
+    for (j = 0; j <= n; j++)
     {
-        if(j==0 || j == n-1){
+        if(j==0 || j == n){
             u0 = 0.0;
             ierr = VecSetValue(b, j, u0, INSERT_VALUES);CHKERRQ(ierr);
         }
@@ -107,8 +107,6 @@ int main(int argc, char **args){
     for (i = 0; i < its; i++)
     {
         ierr = MatMultAdd(A, u, b, u_new);CHKERRQ(ierr);        // u_new = A*u+b
-        ierr = VecAssemblyBegin(u_new);CHKERRQ(ierr);
-        ierr = VecAssemblyEnd(u_new);CHKERRQ(ierr);
         ierr = VecCopy(u_new,u);CHKERRQ(ierr);
     }
 
