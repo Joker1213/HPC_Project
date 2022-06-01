@@ -1,23 +1,21 @@
 static char help[] = "Solves The Transient Heat Problem By Explicit Method.\n\n";
 
-#include <petscdm.h>
-#include <petscdmda.h>
 #include <petscksp.h>
-#include <petscvec.h>
 #include <math.h>
 
+#define pi acos(-1)
 
 int main(int argc, char **args){
-    DM da;
-    Vec u,u_new;
-    Vec xlocal, glocal;
-    PetscInt j, grid=100, L;
-    PetscReal kappa, rho, c, CFL, dx, dt, temp;
-    PetscInt i, n=10, rstart, rend, nlocal, its, nghost=2, ifrom[2];
+    Vec u,u_new,b;
+    Mat A;
+    PetscInt i, j, col[3], rstart, rend, nlocal, its;
+    PetscInt n=100;
+    PetscReal L, dx, dt;
+    PetscReal kappa, rho, c, CFL, value[3];
+    PetscScalar u0;
     PetscInt size, rank;
-    PetscScalar *array, value;
     PetscErrorCode ierr;
-    L = 1;dx = L/grid;dt = 0.01;its = 2500;
+    L = 1.0;dx = L/n;dt = 0.00001;its = (int)(2/dt);
     kappa = 1.0;rho = 1.0;c = 1.0;
     CFL = kappa*dt/(rho*c*dx*dx);
 
@@ -26,51 +24,103 @@ int main(int argc, char **args){
     ierr = MPI_Comm_size(PETSC_COMM_WORLD, &size);CHKERRQ(ierr);
     ierr = MPI_Comm_rank(PETSC_COMM_WORLD, &rank);CHKERRQ(ierr);
     ierr = PetscPrintf(PETSC_COMM_WORLD, "n = %d\n", n);CHKERRQ(ierr);
+    ierr = PetscPrintf(PETSC_COMM_WORLD, "CFL = %f\n", CFL);CHKERRQ(ierr);
+ 
+    // 创建速度向量u
+    ierr = VecCreate(PETSC_COMM_WORLD, &u);CHKERRQ(ierr);
+    ierr = VecSetSizes(u,PETSC_DECIDE,n);CHKERRQ(ierr);
+    ierr = VecSetFromOptions(u);CHKERRQ(ierr);
+    ierr = VecDuplicate(u, &u_new);CHKERRQ(ierr);
+    ierr = VecDuplicate(u, &b);CHKERRQ(ierr);
 
-    nlocal = (int)(grid/size);
-    if (rank==0){
-        ifrom[1] = grid+2*(int)(grid/size)-1;
-        ifrom[0] = nlocal;
+    // 速度初始化
+    for (j = 0; j < n; j++)
+    {
+        if(j==0 || j == n-1){
+            u0 = 0.0;
+            ierr = VecSetValue(u, j, u0, INSERT_VALUES);CHKERRQ(ierr);
+        }
+        else{
+            u0 = exp(j*dx);     // u(t=0)=e^x
+            ierr = VecSetValue(u, j, u0, INSERT_VALUES);CHKERRQ(ierr);
+        }
     }
-    else if(rank==size-1){
-        ifrom[0] = 0;
-        ifrom[1] = rank*nlocal-1;
-    }
-    else{
-        ifrom[0] = (rank+1)*nlocal;
-        ifrom[1] = rank*nlocal-1;
-    }
-    ierr = VecCreateGhost(PETSC_COMM_WORLD, nlocal, PETSC_DECIDE, nghost, ifrom, &u);
-    VecDuplicate(u, &u_new);
 
-    ierr = VecGhostGetLocalForm(u, &xlocal);CHKERRQ(ierr);
-    ierr = VecGetOwnershipRange(u,&rstart,&rend);CHKERRQ(ierr);
-    for(i=rstart;i<rend;i++){
-        value = exp(dx*(rank*nlocal+i));
-        ierr = VecSetValue(u, &i, exp(i*dx), INSERT_VALUES);CHKERRQ(ierr);
-    }
     ierr = VecAssemblyBegin(u);CHKERRQ(ierr);
     ierr = VecAssemblyEnd(u);CHKERRQ(ierr);
-    ierr = VecGhostUpdateBegin(u, INSERT_VALUES, SCATTER_FORWARD);CHKERRQ(ierr);
-    ierr = VecGhostUpdateEnd(u, INSERT_VALUES, SCATTER_FORWARD);CHKERRQ(ierr);
+    // ierr = VecView(u, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
+ 
+    // 确定向量布局
+    ierr = VecGetOwnershipRange(u,&rstart,&rend);CHKERRQ(ierr);
+    ierr = VecGetLocalSize(u,&nlocal);CHKERRQ(ierr);
 
-    /*
-        Print out each vector, including the ghost padding region.
-    */
-    ierr = VecGetArray(xlocal, &array);CHKERRQ(ierr);
-    for(i=0;i<nlocal+nghost;i++){
-        PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%" PetscInt_FMT " %g\n",i,(double)PetscRealPart(array[i]));
+    // 创建系数矩阵A
+    ierr = MatCreate(PETSC_COMM_WORLD, &A);CHKERRQ(ierr);
+    ierr = MatSetSizes(A,nlocal,nlocal,n,n);CHKERRQ(ierr);
+    ierr = MatSetFromOptions(A);CHKERRQ(ierr);
+    ierr = MatSetUp(A);CHKERRQ(ierr);
+ 
+    // 系数矩阵初始化
+    if (!rstart) 
+    {
+        rstart = 1;
+        i      = 0; col[0] = 0; col[1] = 1; value[0] = 0; value[1] = 0;
+        ierr   = MatSetValues(A,1,&i,2,col,value,INSERT_VALUES);CHKERRQ(ierr);
     }
-    ierr = VecRestoreArray(xlocal, &array);CHKERRQ(ierr);
-    ierr = PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);CHKERRQ(ierr);
-    ierr = VecGhostRestoreLocalForm(glocal,&xlocal);CHKERRQ(ierr);
 
-    VecDestroy(u);
-    VecDestroy(u_new);
-    VecDestroy(xlocal);
-    VecDestroy(glocal);
-
-    PetscFinalize();
+    if (rend == n) 
+    {
+        rend = n-1;
+        i    = n-1; col[0] = n-2; col[1] = n-1; value[0] = 0; value[1] = 0;
+        ierr = MatSetValues(A,1,&i,2,col,value,INSERT_VALUES);CHKERRQ(ierr);
+    }
+    value[0] = CFL; value[1] = 1-2.0*CFL; value[2] = CFL;
+    for (i = rstart; i < rend; i++)
+    {
+        col[0] = i-1;col[1] = i;col[2] = i+1;
+        ierr = MatSetValues(A, 1, &i, 3, col, value, INSERT_VALUES);CHKERRQ(ierr);
+    }
     
-    return 0;
+    /* Assemble the martix */
+    ierr = MatAssemblyBegin(A,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+    ierr = MatAssemblyEnd(A,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+    // ierr = MatView(A, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
+
+    /* 设置向量b */
+    for (j = 0; j < n; j++)
+    {
+        if(j==0 || j == n-1){
+            u0 = 0.0;
+            ierr = VecSetValue(b, j, u0, INSERT_VALUES);CHKERRQ(ierr);
+        }
+        else{
+            u0 = dt*sin(L*pi*j*dx)/(rho*c);     
+            ierr = VecSetValue(b, j, u0, INSERT_VALUES);CHKERRQ(ierr);
+        }
+    }
+
+    ierr = VecAssemblyBegin(b);CHKERRQ(ierr);
+    ierr = VecAssemblyEnd(b);CHKERRQ(ierr);
+    // ierr = VecView(b, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
+
+    /* u_new = A*u+b */
+    for (i = 0; i < its; i++)
+    {
+        ierr = MatMultAdd(A, u, b, u_new);CHKERRQ(ierr);        // u_new = A*u+b
+        ierr = VecAssemblyBegin(u_new);CHKERRQ(ierr);
+        ierr = VecAssemblyEnd(u_new);CHKERRQ(ierr);
+        ierr = VecCopy(u_new,u);CHKERRQ(ierr);
+    }
+
+    ierr = VecView(u, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
+    
+      
+    ierr = VecDestroy(&u);CHKERRQ(ierr); 
+    ierr = VecDestroy(&u_new);CHKERRQ(ierr); 
+    ierr = VecDestroy(&b);CHKERRQ(ierr);
+    ierr = MatDestroy(&A);CHKERRQ(ierr);
+
+    ierr = PetscFinalize();  
+
+    return ierr;
 }

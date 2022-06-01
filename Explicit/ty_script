@@ -10,4 +10,4 @@ module purge
 module load intel/2018.4
 module load mpi/intel/2018.4
 
-mpirun -np 10 ./main.out
+mpirun -np 10 ./main.out > $LSB_JOBID.log 2>&1
