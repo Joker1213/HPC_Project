@@ -1,0 +1,12 @@
+#!/bin/bash
+#BSUB -J HPC-Project
+#BSUB -q ser
+#BSUB -n 1
+#BSUB -e %J-petsc.err
+#BSUB -o %J-petsc.out
+
+module purge
+module load intel/2018.4
+module load mpi/intel/2018.4
+
+mpirun -np 1 ./main.out
