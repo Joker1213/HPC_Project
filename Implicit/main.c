@@ -1,6 +1,7 @@
 static char help[] = "Solves The Transient Heat Problem By Implicit Method.\n\n";
 
 #include <petscksp.h>
+#include <petscviewerhdf5.h>
 #include <math.h>
 
 #define pi acos(-1)

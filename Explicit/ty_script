@@ -1,6 +1,6 @@
 #!/bin/bash
 #BSUB -J HPC-Project
-#BSUB -q ser
+#BSUB -q debug
 #BSUB -n 10
 #BSUB -e %J-petsc.err
 #BSUB -o %J-petsc.out
@@ -10,3 +10,4 @@ module load intel/2018.4
 module load mpi/intel/2018.4
 
 mpirun -np 10 ./main.out
+# mpirun -np 10 ./main.out -log_view > Project.log 2>&1
