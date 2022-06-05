@@ -19,7 +19,6 @@ int main(int argc, char **args){
     PetscInt size, rank;
     PetscBool restart = PETSC_FALSE;     // 重启功能标志，初始为FALSE
     PetscErrorCode ierr;
-    index[0] = 0;index[1] = 1;index[2] = 2;
     L = 1.0;dx = L/n;dt = 0.00001;its = (int)(1/dt);
     kappa = 1.0;rho = 1.0;c = 1.0;
     CFL = kappa*dt/(rho*c*dx*dx);
@@ -63,20 +62,20 @@ int main(int argc, char **args){
     ierr = VecAssemblyEnd(b);CHKERRQ(ierr);
     // ierr = VecView(b, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
 
-    restart = PETSC_TRUE;
+    // 设置是否重启
+    restart = (PetscBool)args[1];
     if(restart){
         ierr = PetscViewerHDF5Open(PETSC_COMM_WORLD, "vector.h5", FILE_MODE_READ, &viewer);CHKERRQ(ierr);
         ierr = PetscObjectSetName((PetscObject)temp, "condition");CHKERRQ(ierr);
         ierr = PetscObjectSetName((PetscObject)u, "explicit solution");CHKERRQ(ierr);
         ierr = VecLoad(temp, viewer);CHKERRQ(ierr);
         ierr = VecLoad(u, viewer);CHKERRQ(ierr);
-        // ierr = VecView(temp, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
         ierr = PetscViewerDestroy(&viewer);CHKERRQ(ierr);
+        index[0] = rank*3;index[1] = rank*3+1;index[2] = rank*3+2;
         ierr = VecGetValues(temp, 3, index, data);CHKERRQ(ierr);
         dx = data[0];dt = data[1];reload = (PetscInt)data[2];
-        ierr = PetscPrintf(PETSC_COMM_WORLD, "dx = %f\n", dx);CHKERRQ(ierr);
-        ierr = PetscPrintf(PETSC_COMM_WORLD, "dt = %f\n", dt);CHKERRQ(ierr);
-        ierr = PetscPrintf(PETSC_COMM_WORLD, "its = %d\n", reload);CHKERRQ(ierr);
+        // 打印每一个CPU的值
+        // ierr = PetscPrintf(PETSC_COMM_SELF, "dx = %f, dt = %f, its = %d, rank = %d\n", dx, dt, reload, rank);CHKERRQ(ierr);
     }
     else{
         // 速度初始化
@@ -133,26 +132,17 @@ int main(int argc, char **args){
     // ierr = MatView(A, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
 
     ierr = PetscViewerHDF5Open(PETSC_COMM_WORLD, "vector.h5", FILE_MODE_WRITE, &viewer);CHKERRQ(ierr);
-    ierr = VecView(temp, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
     /* u_new = A*u+b */
     for (i = reload; i < its+1; i++)
     {
-        // ierr = PetscPrintf(PETSC_COMM_WORLD, "i = %d\n", i);CHKERRQ(ierr);
         ierr = MatMultAdd(A, u, b, u_new);CHKERRQ(ierr);        // u_new = A*u+b
         ierr = VecCopy(u_new,u);CHKERRQ(ierr);
         if((i)%10 == 0){
+            index[0] = rank*3;index[1] = rank*3+1;index[2] = rank*3+2;
             data[0] = dx;data[1] = dt;data[2] = i;
-            ierr = PetscPrintf(PETSC_COMM_WORLD, "i = %d\n", i);CHKERRQ(ierr);
-            ierr = PetscPrintf(PETSC_COMM_WORLD, "dx = %f\n", dx);CHKERRQ(ierr);
-            ierr = PetscPrintf(PETSC_COMM_WORLD, "dt = %f\n", dt);CHKERRQ(ierr);
-            ierr = PetscPrintf(PETSC_COMM_WORLD, "its = %d\n", reload);CHKERRQ(ierr);
-            ierr = PetscPrintf(PETSC_COMM_WORLD, "dx = %f\n", data[0]);CHKERRQ(ierr);
-            ierr = PetscPrintf(PETSC_COMM_WORLD, "dt = %f\n", data[1]);CHKERRQ(ierr);
-            ierr = PetscPrintf(PETSC_COMM_WORLD, "its = %d\n", data[2]);CHKERRQ(ierr);
             ierr = VecSetValues(temp, 3, index, data,INSERT_VALUES);CHKERRQ(ierr);
             ierr = VecAssemblyBegin(temp);CHKERRQ(ierr);    
             ierr = VecAssemblyEnd(temp);CHKERRQ(ierr);   
-            ierr = VecView(temp, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr); 
             ierr = PetscObjectSetName((PetscObject)temp, "condition");CHKERRQ(ierr);
             ierr = PetscObjectSetName((PetscObject)u, "explicit solution");CHKERRQ(ierr);
             ierr = VecView(u, viewer);CHKERRQ(ierr);
@@ -160,8 +150,8 @@ int main(int argc, char **args){
         }
     }
 
-    // ierr = VecView(u, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
-    // ierr = VecView(temp, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
+    ierr = VecView(u, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
+    ierr = VecView(temp, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
     ierr = VecView(u, viewer);CHKERRQ(ierr);
     
     end = clock();
