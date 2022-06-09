@@ -11,7 +11,7 @@ int main(int argc, char **args){
     Vec u,u_new,b,temp;
     Mat A;
     PetscInt i, j, col[3], rstart, rend, nlocal, its;
-    PetscInt n=100, index[3], reload=0;
+    PetscInt n=5000, index[3], reload=0;
     PetscReal L, dx, dt, u0;
     PetscReal kappa, rho, c, CFL, value[3];
     PetscScalar data[3];
@@ -19,16 +19,24 @@ int main(int argc, char **args){
     PetscInt size, rank;
     PetscBool restart = PETSC_FALSE;     // 重启功能标志，初始为FALSE
     PetscErrorCode ierr;
-    L = 1.0;dx = L/n;dt = 0.00001;its = (int)(1/dt);
-    kappa = 1.0;rho = 1.0;c = 1.0;
-    CFL = kappa*dt/(rho*c*dx*dx);
 
     clock_t start, end;
     double time;
     start = clock();
 
     ierr = PetscInitialize(&argc,&args,(char*)0,help);if (ierr) return ierr;
+    // 从命令行中读取选项参数
+    ierr = PetscOptionsBegin(PETSC_COMM_WORLD,NULL,NULL,NULL);CHKERRQ(ierr); 
     ierr = PetscOptionsGetInt(NULL, NULL, "-n", &n, NULL);CHKERRQ(ierr);
+    ierr = PetscOptionsGetReal(NULL, NULL, "-dt", &dt, NULL);CHKERRQ(ierr);
+    ierr = PetscOptionsGetBool(NULL, NULL, "-restart", &restart, NULL);CHKERRQ(ierr);
+    ierr = PetscOptionsEnd();CHKERRQ(ierr);
+
+    // 设置初始参数
+    L = 1.0;dx = L/n;dt = 1e-8;its = (int)(1/dt);
+    kappa = 1.0;rho = 1.0;c = 1.0;
+    CFL = kappa*dt/(rho*c*dx*dx);
+
     ierr = MPI_Comm_size(PETSC_COMM_WORLD, &size);CHKERRQ(ierr);
     ierr = MPI_Comm_rank(PETSC_COMM_WORLD, &rank);CHKERRQ(ierr);
     ierr = PetscPrintf(PETSC_COMM_WORLD, "n = %d\n", n);CHKERRQ(ierr);
@@ -63,7 +71,6 @@ int main(int argc, char **args){
     // ierr = VecView(b, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
 
     // 设置是否重启
-    restart = (PetscBool)args[1];
     if(restart){
         ierr = PetscViewerHDF5Open(PETSC_COMM_WORLD, "vector.h5", FILE_MODE_READ, &viewer);CHKERRQ(ierr);
         ierr = PetscObjectSetName((PetscObject)temp, "condition");CHKERRQ(ierr);
@@ -131,7 +138,7 @@ int main(int argc, char **args){
     ierr = MatAssemblyEnd(A,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
     // ierr = MatView(A, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
 
-    ierr = PetscViewerHDF5Open(PETSC_COMM_WORLD, "vector.h5", FILE_MODE_WRITE, &viewer);CHKERRQ(ierr);
+    // ierr = PetscViewerHDF5Open(PETSC_COMM_WORLD, "dx=0.01,dt=0.000001.h5", FILE_MODE_WRITE, &viewer);CHKERRQ(ierr);
     /* u_new = A*u+b */
     for (i = reload; i < its+1; i++)
     {
@@ -150,10 +157,11 @@ int main(int argc, char **args){
         }
     }
 
-    ierr = VecView(u, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
-    ierr = VecView(temp, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
-    ierr = VecView(u, viewer);CHKERRQ(ierr);
+    ierr = VecView(u, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);     // 查看计算最终结果
+    // ierr = VecView(temp, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
+    ierr = VecView(u, viewer);CHKERRQ(ierr);                        // 将结果输出到HDF5文件
     
+    // 计算时间
     end = clock();
     time = (double)(end - start)/CLOCKS_PER_SEC;
     ierr = PetscPrintf(PETSC_COMM_WORLD, "time = %fs\n", time);CHKERRQ(ierr);

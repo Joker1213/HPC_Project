@@ -3,6 +3,7 @@ static char help[] = "Solves The Transient Heat Problem By Implicit Method.\n\n"
 #include <petscksp.h>
 #include <petscviewerhdf5.h>
 #include <math.h>
+#include <time.h>
 
 #define pi acos(-1)
 
@@ -21,12 +22,24 @@ int main(int argc, char **args){
     PetscInt size, rank;
     PetscBool restart = PETSC_FALSE;     // 重启功能标志，初始为FALSE
     PetscErrorCode ierr;
+    
+    // 计时
+    clock_t start, end;
+    double time;
+    start = clock();
+
+    ierr = PetscInitialize(&argc,&args,(char*)0,help);if (ierr) return ierr;
+    // 从命令行中读取选项参数
+    ierr = PetscOptionsBegin(PETSC_COMM_WORLD,NULL,NULL,NULL);CHKERRQ(ierr); 
+    ierr = PetscOptionsGetInt(NULL, NULL, "-n", &n, NULL);CHKERRQ(ierr);
+    ierr = PetscOptionsGetReal(NULL, NULL, "-dt", &dt, NULL);CHKERRQ(ierr);
+    ierr = PetscOptionsGetBool(NULL, NULL, "-restart", &restart, NULL);CHKERRQ(ierr);
+    ierr = PetscOptionsEnd();CHKERRQ(ierr);
+
     L = 1.0;dx = L/n;dt = 0.00001;its = (int)(1.0/dt);
     kappa = 1.0;rho = 1.0;c = 1.0;
     CFL = kappa*dt/(rho*c*dx*dx);
 
-    ierr = PetscInitialize(&argc,&args,(char*)0,help);if (ierr) return ierr;
-    ierr = PetscOptionsGetInt(NULL, NULL, "-n", &n, NULL);CHKERRQ(ierr);
     ierr = MPI_Comm_size(PETSC_COMM_WORLD, &size);CHKERRQ(ierr);
     ierr = MPI_Comm_rank(PETSC_COMM_WORLD, &rank);CHKERRQ(ierr);
     ierr = PetscPrintf(PETSC_COMM_WORLD, "n = %d\n", n);CHKERRQ(ierr);
@@ -61,7 +74,6 @@ int main(int argc, char **args){
     // ierr = VecView(b, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
 
     // 是否重启
-    restart = (PetscBool)args[1];
     if(restart){
         ierr = PetscViewerHDF5Open(PETSC_COMM_WORLD, "vector.h5", FILE_MODE_READ, &viewer);CHKERRQ(ierr);
         ierr = PetscObjectSetName((PetscObject)temp, "condition");CHKERRQ(ierr);
@@ -107,14 +119,14 @@ int main(int argc, char **args){
     if (!rstart) 
     {
         rstart = 1;
-        i      = 0; col[0] = 0; col[1] = 1; value[0] = 0; value[1] = 0;
+        i      = 0; col[0] = 0; col[1] = 1; value[0] = 1; value[1] = 0;
         ierr   = MatSetValues(A,1,&i,2,col,value,INSERT_VALUES);CHKERRQ(ierr);
     }
 
     if (rend == n+1) 
     {
         rend = n;
-        i    = n; col[0] = n-2; col[1] = n-1; value[0] = 0; value[1] = 0;
+        i    = n; col[0] = n-1; col[1] = n; value[0] = 0; value[1] = 1;
         ierr = MatSetValues(A,1,&i,2,col,value,INSERT_VALUES);CHKERRQ(ierr);
     }
     for (i = rstart; i < rend; i++)
@@ -172,9 +184,13 @@ int main(int argc, char **args){
         }
     }
 
-    ierr = VecView(u, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);     // 查看向量结果u
-    ierr = VecView(temp, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
+    // ierr = VecView(u, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);     // 查看向量结果u
+    // ierr = VecView(temp, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
     ierr = VecView(u, viewer);CHKERRQ(ierr);    // 将数据输出到vector.h5文件中
+
+    end = clock();
+    time = (double)(end - start)/CLOCKS_PER_SEC;
+    ierr = PetscPrintf(PETSC_COMM_WORLD, "time = %fs\n", time);CHKERRQ(ierr);
     
     ierr = PetscViewerDestroy(&viewer);CHKERRQ(ierr);   // 关闭文件传输
     ierr = VecDestroy(&u);CHKERRQ(ierr); 

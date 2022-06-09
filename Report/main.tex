@@ -262,7 +262,7 @@ $$
     \label{fig:my_label}
 \end{figure}
 
-\qquad 得到的$\alpha \approx 0.0526$，$\beta \approx -0.000604$,所以显式格式的误差与网格大小与时间步长关系为：中$e \approx C_1 (\Delta x)^0.0526 + C_2 (\Delta t)^{-0,000604}$。
+\qquad 得到的$\alpha \approx 0.0526$，$\beta \approx -0.000604$,所以显式格式的误差与网格大小与时间步长关系为：中$e \approx C_1 (\Delta x)^{0.0526} + C_2 (\Delta t)^{-0,000604}$。
 
 \qquad 隐式格式情况下，固定$dt=0.0001$,改变网格数量$n$分别取$100, 200, 300, 400 $得到隐式格式的解，与解析解比较最大误差值$e:=max_{1 \leq i \leq n}\mid u_{exact,i} - u_{num,i}\mid$，对于不同的$\Delta x$得到的不同的误差，得到$\alpha$，同理，固定$dx=0.01$，改变时间步长$dt$分别取$0.01, 0.001, 0.0001, 0.00001$得到不同的解，拟合直线得到关系式中的$\beta$。如下图所示：
 \begin{figure}[h]
@@ -277,7 +277,7 @@ $$
     \label{fig:my_label}
 \end{figure}
 
-\qquad 得到的$\alpha \approx 0.03452$，$\beta \approx 0.04571$,所以隐式格式关系为：中$e \approx C_1 (\Delta x)^0.03452 + C_2 (\Delta t)^0.04571$。
+\qquad 得到的$\alpha \approx 0.03452$，$\beta \approx 0.04571$,所以隐式格式关系为：中$e \approx C_1 (\Delta x)^{0.03452} + C_2 (\Delta t)^{0.04571}$。
 \subsection{内存检查(Valgrind)}
 \qquad 使用valgrind检查内存泄漏情况，结果如图：
 \begin{figure}[h]
@@ -316,5 +316,5 @@ $$
 \qquad 从结果报告中可以得到，对于隐式格式程序Jacobi运行时间最短，asm运行时间最长。
 
 \section{报告总结}
-\qquad 本次Project实现了使用显式差分格式和隐式差分格式对一维传热问题的求解，并使用Petsc库对代码做并行化处理，同时借助HDF5库实现最终数值解数据的传输和存储，通过HDF5文件在Petsc中的读写功能实现重启功能防止机器出现突然断电等突发情况。
+\qquad 本次Project实现了使用显式差分格式和隐式差分格式对一维传热问题的求解，并使用Petsc库对代码做并行化处理，同时借助HDF5库实现最终数值解数据的传输和存储，通过HDF5文件在Petsc中的读写功能实现重启功能防止机器出现突然断电等突发情况。整个过程最终所有的数据可视化图均由python读取HDF5文件绘画制成。
 \end{document}
